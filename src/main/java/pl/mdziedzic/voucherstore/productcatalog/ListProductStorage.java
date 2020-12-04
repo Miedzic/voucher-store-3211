@@ -1,13 +1,9 @@
-package pl.jkanclerz.voucherstore.productcatalog;
+package pl.mdziedzic.voucherstore.productcatalog;
 
 import java.util.List;
 import java.util.Optional;
 
-public class JDBCProductStorage implements ProductStorage {
-    public JDBCProductStorage(String s) {
-
-    }
-
+public class ListProductStorage implements ProductStorage {
     @Override
     public void save(Product newProduct) {
 

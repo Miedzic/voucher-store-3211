@@ -1,4 +1,4 @@
-package pl.jkanclerz.voucherstore.productcatalog;
+package pl.mdziedzic.voucherstore.productcatalog;
 
 public class ProductNotFoundException extends IllegalStateException {
     public ProductNotFoundException(String message) {

@@ -1,4 +1,4 @@
-package pl.jkanclerz.voucherstore.productcatalog;
+package pl.mdziedzic.voucherstore.productcatalog;
 
 import java.util.List;
 import java.util.Map;

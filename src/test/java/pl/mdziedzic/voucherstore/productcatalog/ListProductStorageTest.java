@@ -1,11 +1,9 @@
-package pl.jkanclerz.voucherstore.productcatalog;
+package pl.mdziedzic.voucherstore.productcatalog;
 
 import org.junit.Test;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.*;
 
 
 public class ListProductStorageTest {
@@ -16,10 +14,6 @@ public class ListProductStorageTest {
 
         storage.save(p1);
 
-        assertThat(storage.allPublishedProducts())
-                .hasSize(1)
-                .extracting(Product::getId)
-                .contains(p1.getId());
     }
 
     private Product thereIsProduct() {
