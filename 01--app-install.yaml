@@ -1,0 +1,139 @@
+---
+- hosts: app_nodes
+  become: yes
+  vars:
+    JRE_URL: https://corretto.aws/downloads/latest/amazon-corretto-11-x64-al2-jre.rpm
+    APP_JAR_URL:https://github.com/Miedzic/voucher-store-3211/releases/download/1.0/voucher-store-3211.jar
+    APP_DIR: /opt/ecommerce
+    APP_USER: ecommerce
+  tasks:
+    - name: "install jre"
+      yum:
+        name: "{{ JRE_URL }}"
+        state: present
+    - name: "ensure dest dir exists"
+      file:
+        path: "{{ APP_DIR }}"
+        state: directory
+    - name: "download app"
+      get_url:
+        url: "{{ APP_JAR_URL }}"
+        dest: "{{ APP_DIR ~ '/application.jar' }}"
+    - name: "create user"
+      user:
+        name: "{{ APP_USER }}"
+    - name: "place service cfg"
+      template:
+        src: files/systemd/ecommerce.service
+        dest: /etc/systemd/system/ecommerce.service
+    - name: "restart app"
+      systemd:
+        name: ecommerce
+        daemon_reload: yes
+        enabled: yes
+        state: restarted
+
+- hosts: lb_nodes
+  become: yes
+  vars:
+    domain_name: wojczu.edu-cloud.uek.krakow.pl
+    epel_rpm_url: https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+    app_node_ips:
+      - 172.31.35.178:5000
+  tasks:
+    - name: "install epel repo"
+      yum:
+        name: "{{ epel_rpm_url }}"
+    - name: "install nginx"
+      yum:
+        name:
+          - nginx
+          - certbot
+          - certbot-nginx
+    - name: "put nginx cfg"
+      template:
+        src: files/nginx/ecommerce.conf
+        dest: /etc/nginx/conf.d/ecommerce.conf
+    - name:
+      systemd:
+        name: nginx
+        enabled: yes
+        state: restarted
+
+- hosts: stats
+  become: yes
+  vars:
+    telegarf_rpm_url: https://dl.influxdata.com/telegraf/releases/telegraf-1.17.2-1.x86_64.rpm
+    influxdb_rpm_url: https://dl.influxdata.com/influxdb/releases/influxdb-1.8.4.x86_64.rpm
+    grafana_rpm_url: https://dl.grafana.com/oss/release/grafana-7.4.0-1.x86_64.rpm
+    metrics_database: metrics
+    grafana_url: http://127.0.0.1:3000
+    grafana_user: admin
+    grafana_password: secureAdminPass
+  tasks:
+
+    - name: "install telegraf dep"
+      yum:
+        name: "{{ telegarf_rpm_url }}"
+    - name: "install grafana dep"
+      yum:
+        name: "{{ grafana_rpm_url }}"
+    - name: "install influx dep"
+      yum:
+        name: "{{ influxdb_rpm_url }}"
+    - name: "install python dep"
+      yum:
+        name: "python2-pip"
+        state: present
+    - name: "install influx db driver"
+      pip:
+        name: influxdb
+        state: present
+
+    - name: "put telegraf conf into dest"
+      template:
+        src: files/telegraf/telegraf.conf
+        dest: /etc/telegraf/telegraf.conf
+    - name: "put grafana ini into dest"
+      template:
+        src: files/grafana/grafana.ini
+        dest: /etc/grafana/grafana.ini
+
+    - name: "restart services"
+      service:
+        name: "{{ item }}"
+        state: restarted
+      with_items:
+        - influxdb
+        - telegraf
+        - grafana-server 
+
+    - name: "create metrics db"
+      influxdb_database:
+        database_name: "{{ metrics_database }}"
+    
+    - name: "create influxdb datasource"
+      grafana_datasource:
+        name: "influxdb"
+        grafana_url: "{{ grafana_url }}"
+        grafana_user: "{{ grafana_user }}"
+        grafana_password: "{{ grafana_password }}"
+        ds_type: "influxdb"
+        ds_url: "http://127.0.0.1:8086"
+        database: "{{ metrics_database }}"
+        time_interval: ">10s"
+    
+    - name: "copy dashboard to remote"
+      copy:
+        src: files/grafana/dashboard.json
+        dest: /tmp/dashboard.json
+
+    - name: "create grafana dashboard"
+      grafana_dashboard:
+        grafana_url: "{{ grafana_url }}"
+        grafana_user: "{{ grafana_user }}"
+        grafana_password: "{{ grafana_password }}"
+        state: present
+        commit_message: updated by ansible
+        overwrite: yes
+        path: /tmp/dashboard.json
